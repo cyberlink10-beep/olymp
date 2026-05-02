@@ -1,7 +1,5 @@
 import { put, list } from '@vercel/blob';
 
-export const config = { runtime: 'edge' };
-
 const FILENAME = 'site-data.json';
 // Admin password — must match client-side ADMIN_PASSWORD in admin.html
 const ADMIN_PASSWORD = 'geroi2025';
