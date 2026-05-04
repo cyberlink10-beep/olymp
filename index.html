@@ -1455,22 +1455,6 @@ function FloorPlan({ onSelectApt }) {
                   </div>
                 )}
 
-                {/* STEP 1: Empty state — no floor polygons defined */}
-                {step === 1 && korpus && Object.keys(korpus.floorPolygons || {}).length === 0 && (
-                  <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(10px)',
-                    borderRadius: 14, padding: '20px 26px', maxWidth: 420, textAlign: 'center',
-                    border: '1px solid #ece9e5', zIndex: 5,
-                    boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
-                    animation: 'fadeUp 500ms cubic-bezier(0.4,0,0.2,1) 900ms backwards',
-                  }}>
-                    <div style={{ fontSize: 24, marginBottom: 8 }}>📐</div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--c-charcoal)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Этажи ещё не размечены</div>
-                    <div style={{ fontSize: 13, color: 'var(--c-gray-500)', lineHeight: 1.55 }}>Зайдите в админку → вкладка <b>«Корпуса»</b> → выберите этот корпус → переключите режим на <b>«Контуры этажей»</b> и обведите этажи на фотографии</div>
-                  </div>
-                )}
               </div>
 
               {/* Hint below */}
