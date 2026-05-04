@@ -1311,6 +1311,29 @@ function FloorPlan({ onSelectApt }) {
                 boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
                 background: '#f5f3ef',
               }}>
+                {/* Back button — Step 1 only */}
+                {step === 1 && (
+                  <button onClick={() => goBackTo(0)} style={{
+                    position: 'absolute', top: 24, left: 24, zIndex: 6,
+                    padding: '10px 18px 10px 14px', borderRadius: 99,
+                    background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: '0 6px 22px rgba(0,0,0,0.14)',
+                    fontSize: 13, fontWeight: 600, color: 'var(--c-charcoal)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    fontFamily: 'var(--font-body)',
+                    transition: 'all 200ms cubic-bezier(0.4,0,0.2,1)',
+                    animation: 'fadeUp 500ms ease-out 800ms backwards',
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-2px)'; e.currentTarget.style.boxShadow = '0 8px 26px rgba(0,0,0,0.18)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.14)'; }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    К выбору корпуса
+                  </button>
+                )}
                 {/* Zoomable layer — camera transform applied here */}
                 <div style={{
                   position: 'relative',
@@ -1457,9 +1480,18 @@ function FloorPlan({ onSelectApt }) {
 
               </div>
 
-              {/* Hint below */}
-              <div style={{ marginTop: 20, fontSize: 13, color: 'var(--c-gray-400)', textAlign: 'center', letterSpacing: '0.04em' }}>
-                {step === 0 ? 'Наведите на корпус и кликните, чтобы перейти к выбору этажа' : 'Наведите на этаж и кликните, чтобы открыть планировки квартир'}
+              {/* Stylish step hint */}
+              <div style={{ marginTop: 28, textAlign: 'center' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ width: 32, height: 1, background: 'linear-gradient(90deg, transparent, var(--c-brand))' }} />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--c-brand)' }}>
+                    {step === 0 ? '01 — Выберите корпус' : '02 — Выберите этаж'}
+                  </span>
+                  <span style={{ width: 32, height: 1, background: 'linear-gradient(90deg, var(--c-brand), transparent)' }} />
+                </div>
+                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--c-gray-400)', letterSpacing: '0.02em', fontStyle: 'italic' }}>
+                  {step === 0 ? 'кликните на любое здание — камера приблизит к нему' : 'наведите курсор на нужный этаж и нажмите для просмотра квартир'}
+                </div>
               </div>
             </div>
           );
@@ -1468,6 +1500,27 @@ function FloorPlan({ onSelectApt }) {
         {/* ─── STEP 2 — Floor plan with apartments ─── */}
         {step === 2 && korpus && floor && (
           <div style={{ animation: 'fadeUp 350ms ease-out' }}>
+            {/* Back button */}
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={() => goBackTo(1)} style={{
+                padding: '10px 18px 10px 14px', borderRadius: 99,
+                background: '#fff', border: '1.5px solid #ece9e5',
+                fontSize: 13, fontWeight: 600, color: 'var(--c-charcoal)',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                fontFamily: 'var(--font-body)',
+                transition: 'all 200ms cubic-bezier(0.4,0,0.2,1)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-2px)'; e.currentTarget.style.borderColor = 'var(--c-brand)'; e.currentTarget.style.color = 'var(--c-brand)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = '#ece9e5'; e.currentTarget.style.color = 'var(--c-charcoal)'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                К выбору этажа
+              </button>
+            </div>
+
             {/* Filters bar */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--c-gray-500)', marginRight: 6 }}>Комнатность</span>
