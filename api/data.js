@@ -11,7 +11,11 @@ async function readBlob() {
   const { blobs } = await list({ prefix: FILENAME, limit: 50 });
   const found = blobs.find(b => b.pathname === FILENAME);
   if (!found) return {};
-  const r = await fetch(found.url, { cache: 'no-store' });
+  // Cache-buster: Vercel Blob CDN caches the URL; use uploadedAt timestamp + random
+  // so we always get the latest content (last write).
+  const ts = found.uploadedAt ? new Date(found.uploadedAt).getTime() : Date.now();
+  const bust = `?v=${ts}-${Math.random().toString(36).slice(2, 8)}`;
+  const r = await fetch(found.url + bust, { cache: 'no-store' });
   if (!r.ok) return {};
   try { return await r.json(); } catch { return {}; }
 }
