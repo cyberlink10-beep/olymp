@@ -1322,11 +1322,13 @@ function FloorPlan({ onSelectApt }) {
                             return (
                               <polygon key={f}
                                 points={fp[f]}
-                                fill={isHover ? 'rgba(217,78,31,0.55)' : 'rgba(217,78,31,0.12)'}
-                                stroke={isHover ? '#E05520' : 'rgba(217,78,31,0.45)'}
-                                strokeWidth={isHover ? 0.3 : 0.15}
-                                vectorEffect="non-scaling-stroke"
-                                style={{ cursor: 'pointer', transition: 'all 220ms' }}
+                                fill={isHover ? 'rgba(255,240,220,0.38)' : 'rgba(255,255,255,0.04)'}
+                                stroke="none"
+                                style={{
+                                  cursor: 'pointer',
+                                  transition: 'fill 260ms cubic-bezier(.4,0,.2,1), filter 260ms',
+                                  filter: isHover ? 'drop-shadow(0 0 1.2px rgba(255,210,160,0.9)) drop-shadow(0 0 2.5px rgba(255,180,120,0.6))' : 'none',
+                                }}
                                 onMouseEnter={() => setHoveredFloor(f)}
                                 onMouseLeave={() => setHoveredFloor(null)}
                                 onClick={() => goFloor(f)}
@@ -1422,14 +1424,17 @@ function FloorPlan({ onSelectApt }) {
                 {/* STEP 1: Empty state — no floor polygons defined */}
                 {step === 1 && korpus && Object.keys(korpus.floorPolygons || {}).length === 0 && (
                   <div style={{
-                    position: 'absolute', bottom: 24, left: 24,
-                    background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
-                    borderRadius: 12, padding: '14px 18px', maxWidth: 380,
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(10px)',
+                    borderRadius: 14, padding: '20px 26px', maxWidth: 420, textAlign: 'center',
                     border: '1px solid #ece9e5', zIndex: 5,
-                    animation: 'fadeUp 600ms ease-out 1000ms backwards',
+                    boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
+                    animation: 'fadeUp 500ms cubic-bezier(0.4,0,0.2,1) 900ms backwards',
                   }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-charcoal)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Этажи ещё не размечены</div>
-                    <div style={{ fontSize: 12, color: 'var(--c-gray-500)', lineHeight: 1.5 }}>Откройте панель управления → Корпуса → этот корпус → режим «Контуры этажей»</div>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>📐</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--c-charcoal)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Этажи ещё не размечены</div>
+                    <div style={{ fontSize: 13, color: 'var(--c-gray-500)', lineHeight: 1.55 }}>Зайдите в админку → вкладка <b>«Корпуса»</b> → выберите этот корпус → переключите режим на <b>«Контуры этажей»</b> и обведите этажи на фотографии</div>
                   </div>
                 )}
               </div>
