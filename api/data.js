@@ -35,11 +35,32 @@ export default async function handler(req, res) {
       }
 
       // ?replace=1 → replace whole blob (rare, used for cleanup)
-      // default → MERGE with existing data (do not wipe other keys)
+      // default → DEEP MERGE with existing data
       const url = new URL(req.url, 'http://x');
       const isReplace = url.searchParams.get('replace') === '1';
       const existing = isReplace ? {} : await readBlob();
-      const merged = { ...existing, ...incoming };
+      const merged = { ...existing };
+      for (const k of Object.keys(incoming)) {
+        if (k === 'geroi_korpuses' && Array.isArray(existing[k]) && Array.isArray(incoming[k])) {
+          // merge korpuses by id, deep-merge floorPolygons
+          const byId = new Map((existing[k] || []).map(x => [x.id, x]));
+          for (const x of incoming[k]) {
+            const ex = byId.get(x.id);
+            if (ex) {
+              byId.set(x.id, {
+                ...ex,
+                ...x,
+                floorPolygons: { ...(ex.floorPolygons || {}), ...(x.floorPolygons || {}) },
+              });
+            } else {
+              byId.set(x.id, x);
+            }
+          }
+          merged[k] = Array.from(byId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
+        } else {
+          merged[k] = incoming[k];
+        }
+      }
 
       await put(FILENAME, JSON.stringify(merged), {
         access: 'public',
