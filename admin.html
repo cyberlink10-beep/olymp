@@ -208,14 +208,20 @@ await __bootstrapFromServer();
 const ADMIN_PASSWORD = 'geroi2025';
 
 const DEFAULT_APARTMENTS = [
-  { id:1, rooms:1, area:36, floor:3,  section:1, price:2900000, available:true,  badge:null,      img:'assets/render-aerial.jpg' },
-  { id:2, rooms:1, area:42, floor:7,  section:2, price:3350000, available:true,  badge:'Акция',   img:'assets/render-courtyard.jpg' },
-  { id:3, rooms:2, area:58, floor:5,  section:1, price:4100000, available:true,  badge:null,      img:'assets/render-sunset.jpg' },
-  { id:4, rooms:2, area:64, floor:10, section:2, price:4800000, available:false, badge:null,      img:'assets/render-street.jpg' },
-  { id:5, rooms:3, area:78, floor:8,  section:3, price:5900000, available:true,  badge:null,      img:'assets/render-facade.jpg' },
-  { id:6, rooms:3, area:86, floor:11, section:2, price:6500000, available:true,  badge:'Премиум', img:'assets/render-aerial2.jpg' },
-  { id:7, rooms:1, area:34, floor:2,  section:3, price:2750000, available:true,  badge:null,      img:'assets/render-sports.jpg' },
-  { id:8, rooms:2, area:55, floor:4,  section:1, price:3950000, available:false, badge:null,      img:'assets/render-aerial.jpg' },
+  /* Корпус 1, Этаж 1 — 5 квартир по планировке */
+  { id:1,  korpus:1, rooms:3, area:97.95, floor:1,  section:1, price:9500000, available:true,  badge:null,      img:'assets/3-k.png', polygon:'5,3 30,3 30,30 5,30' },
+  { id:2,  korpus:1, rooms:1, area:46.65, floor:1,  section:1, price:4500000, available:true,  badge:null,      img:'assets/1-k.png', polygon:'58,3 78,3 78,30 58,30' },
+  { id:3,  korpus:1, rooms:1, area:46.25, floor:1,  section:1, price:4480000, available:true,  badge:'Акция',   img:'assets/1-k.png', polygon:'78,3 97,3 97,30 78,30' },
+  { id:4,  korpus:1, rooms:2, area:62.95, floor:1,  section:1, price:6100000, available:true,  badge:null,      img:'assets/2-k.png', polygon:'10,30 35,30 35,52 10,52' },
+  { id:5,  korpus:1, rooms:1, area:44.25, floor:1,  section:1, price:4290000, available:false, badge:null,      img:'assets/1-k.png', polygon:'57,30 79,30 79,52 57,52' },
+  /* Прочие квартиры в каталоге */
+  { id:6,  korpus:1, rooms:1, area:36, floor:3,  section:1, price:2900000, available:true,  badge:null,      img:'assets/1-k.png' },
+  { id:7,  korpus:2, rooms:1, area:42, floor:7,  section:2, price:3350000, available:true,  badge:'Акция',   img:'assets/1-k.png' },
+  { id:8,  korpus:1, rooms:2, area:58, floor:5,  section:1, price:4100000, available:true,  badge:null,      img:'assets/2-k.png' },
+  { id:9,  korpus:2, rooms:2, area:64, floor:10, section:2, price:4800000, available:false, badge:null,      img:'assets/2-k.png' },
+  { id:10, korpus:3, rooms:3, area:78, floor:8,  section:3, price:5900000, available:true,  badge:null,      img:'assets/3-k.png' },
+  { id:11, korpus:2, rooms:3, area:86, floor:11, section:2, price:6500000, available:true,  badge:'Премиум', img:'assets/3-k.png' },
+  { id:12, korpus:3, rooms:1, area:34, floor:2,  section:3, price:2750000, available:true,  badge:null,      img:'assets/1-k.png' },
 ];
 
 const DEFAULT_SLIDES = [
@@ -1244,16 +1250,97 @@ function PolygonEditor({ value, onChange, imgSrc }) {
   );
 }
 
+/* Editor for apartment polygons over a floor-schema image.
+   Shows all apartment polygons (read-only translucent) plus an editable one for activeId. */
+function AptSchemaEditor({ imgSrc, apts, activeId, onChange }) {
+  const svgRef = useRef(null);
+  const [draggingIdx, setDraggingIdx] = useState(null);
+  const active = apts.find(a => a.id === activeId);
+  const points = (active?.polygon || '').trim()
+    ? active.polygon.trim().split(/\s+/).map(p => p.split(',').map(Number)).filter(p => p.length === 2 && !isNaN(p[0]))
+    : [];
+
+  const toCoords = e => {
+    const svg = svgRef.current;
+    if (!svg) return [0, 0];
+    const r = svg.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 56.25;
+    return [Math.max(0, Math.min(100, x)), Math.max(0, Math.min(56.25, y))];
+  };
+  const setPoints = pts => onChange(pts.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' '));
+
+  const handleSvgClick = e => {
+    if (draggingIdx !== null) return;
+    if (e.target.tagName === 'circle') return;
+    if (active == null) return;
+    const c = toCoords(e);
+    setPoints([...points, c]);
+  };
+  const handleVertexDown = (i, e) => { e.stopPropagation(); setDraggingIdx(i); };
+  const handleVertexRight = (i, e) => { e.preventDefault(); e.stopPropagation(); setPoints(points.filter((_, j) => j !== i)); };
+
+  useEffect(() => {
+    if (draggingIdx === null) return;
+    const onMove = e => { const c = toCoords(e); setPoints(points.map((p, j) => j === draggingIdx ? c : p)); };
+    const onUp = () => setDraggingIdx(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [draggingIdx, points]);
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#0a0907' }}>
+      <img src={imgSrc} alt="" style={{ width: '100%', display: 'block', userSelect: 'none', pointerEvents: 'none' }} draggable={false} />
+      <svg ref={svgRef} viewBox="0 0 100 56.25" preserveAspectRatio="none"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: active ? 'crosshair' : 'default' }}
+        onClick={handleSvgClick}>
+        {/* read-only existing polygons */}
+        {apts.filter(a => a.id !== activeId && a.polygon).map(a => (
+          <polygon key={a.id} points={a.polygon}
+            fill="rgba(120,200,255,0.18)" stroke="rgba(120,200,255,0.55)" strokeWidth="0.2"
+            vectorEffect="non-scaling-stroke" pointerEvents="none" />
+        ))}
+        {/* active polygon */}
+        {points.length >= 3 && (
+          <polygon points={points.map(p => p.join(',')).join(' ')}
+            fill="rgba(217,78,31,0.34)" stroke="#E05520" strokeWidth="0.3"
+            vectorEffect="non-scaling-stroke" pointerEvents="none" />
+        )}
+        {points.length === 2 && (
+          <line x1={points[0][0]} y1={points[0][1]} x2={points[1][0]} y2={points[1][1]} stroke="#E05520" strokeWidth="0.3" pointerEvents="none" />
+        )}
+        {points.map((p, i) => (
+          <circle key={i} cx={p[0]} cy={p[1]} r="0.8"
+            fill={draggingIdx === i ? '#fff' : '#E05520'} stroke="#fff" strokeWidth="0.25"
+            style={{ cursor: 'grab' }}
+            onMouseDown={e => handleVertexDown(i, e)}
+            onContextMenu={e => handleVertexRight(i, e)} />
+        ))}
+      </svg>
+      {!active && (
+        <div style={{
+          position: 'absolute', top: 14, left: 14, padding: '8px 12px',
+          background: 'rgba(20,17,14,0.92)', backdropFilter: 'blur(8px)',
+          color: '#fff', fontSize: 12, borderRadius: 8, pointerEvents: 'none',
+        }}>← Выберите квартиру слева, чтобы начать обводить контур</div>
+      )}
+    </div>
+  );
+}
+
 function KorpusesTab({ toast }) {
   const [korpuses, setKorpuses] = useState(() => ls.load('geroi_korpuses', DEFAULT_KORPUSES_ADMIN));
   const [siteRender, setSiteRender] = useState(() => ls.load('geroi_site_render', 'assets/site-render.jpg'));
+  const [apts, setApts] = useState(() => ls.load('geroi_apts', DEFAULT_APARTMENTS));
   const [selId, setSelId] = useState(korpuses[0]?.id || 1);
-  const [mode, setMode] = useState('korpus'); // 'korpus' | 'floor'
+  const [mode, setMode] = useState('korpus'); // 'korpus' | 'floor' | 'apts'
   const [floorNum, setFloorNum] = useState(1);
+  const [activeAptId, setActiveAptId] = useState(null);
 
   const sel = korpuses.find(k => k.id === selId) || korpuses[0];
   const persist = next => { setKorpuses(next); ls.save('geroi_korpuses', next); };
-  const saveAll = () => { ls.save('geroi_korpuses', korpuses); toast('Полигоны корпусов сохранены'); };
+  const saveAll = () => { ls.save('geroi_korpuses', korpuses); ls.save('geroi_apts', apts); toast('Полигоны и квартиры сохранены'); };
   const resetAll = () => { if (confirm('Восстановить полигоны по умолчанию?')) { persist(DEFAULT_KORPUSES_ADMIN); toast('Сброшено'); } };
   const updateSel = patch => persist(korpuses.map(k => k.id === selId ? { ...k, ...patch } : k));
 
@@ -1265,6 +1352,15 @@ function KorpusesTab({ toast }) {
     updateSel({ floorPolygons: fp });
   };
   const clearAllFloors = () => { if (confirm('Удалить разметку всех этажей этого корпуса?')) updateSel({ floorPolygons: {} }); };
+
+  /* Apartments mode helpers */
+  const floorSchemaUrl = (sel.floorSchemas && sel.floorSchemas[floorNum]) || '';
+  const setFloorSchemaUrl = url => updateSel({ floorSchemas: { ...(sel.floorSchemas || {}), [floorNum]: url } });
+  const aptsOnFloor = apts.filter(a => a.korpus === selId && Number(a.floor) === Number(floorNum));
+  const persistApts = next => { setApts(next); ls.save('geroi_apts', next); };
+  const updateApt = (id, patch) => persistApts(apts.map(a => a.id === id ? { ...a, ...patch } : a));
+  const onChangeAptPolygon = pts => { if (activeAptId != null) updateApt(activeAptId, { polygon: pts }); };
+  const clearAptPolygon = () => { if (activeAptId != null) updateApt(activeAptId, { polygon: '' }); };
 
   return (
     <>
@@ -1320,18 +1416,28 @@ function KorpusesTab({ toast }) {
           <button className={mode === 'floor' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setMode('floor')}>
             Контуры этажей
           </button>
-          {mode === 'floor' && (
+          <button className={mode === 'apts' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setMode('apts')}>
+            Квартиры на этаже
+          </button>
+          {(mode === 'floor' || mode === 'apts') && (
             <>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginLeft: 12 }}>Этаж:</span>
-              <select value={floorNum} onChange={e => setFloorNum(Number(e.target.value))}
+              <select value={floorNum} onChange={e => { setFloorNum(Number(e.target.value)); setActiveAptId(null); }}
                 style={{ width: 100, padding: '7px 10px', fontSize: 13 }}>
                 {Array.from({ length: sel.floors }, (_, i) => sel.floors - i).map(f => (
-                  <option key={f} value={f}>{f} этаж {sel.floorPolygons?.[f] ? '✓' : ''}</option>
+                  <option key={f} value={f}>{f} этаж {mode==='floor' ? (sel.floorPolygons?.[f] ? '✓' : '') : (sel.floorSchemas?.[f] ? '🖼' : '')}</option>
                 ))}
               </select>
+            </>
+          )}
+          {mode === 'floor' && (
+            <>
               <button className="btn btn-danger btn-sm" onClick={clearFloorPolygon}>Очистить этаж</button>
               <button className="btn btn-danger btn-sm" onClick={clearAllFloors}>Очистить все этажи</button>
             </>
+          )}
+          {mode === 'apts' && activeAptId != null && (
+            <button className="btn btn-danger btn-sm" onClick={clearAptPolygon}>Очистить контур квартиры</button>
           )}
           {mode === 'korpus' && (
             <button className="btn btn-danger btn-sm" onClick={clearKorpusPolygon} style={{ marginLeft: 12 }}>Очистить контур</button>
@@ -1342,14 +1448,71 @@ function KorpusesTab({ toast }) {
         <div style={{ background: 'rgba(227,133,77,0.08)', border: '1px solid rgba(227,133,77,0.25)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
           <b>Как пользоваться:</b> кликните по фотографии, чтобы добавить точку контура. Перетаскивайте точки для коррекции. Правый клик по точке — удалить.
           {mode === 'floor' && ' Обведите контур каждого этажа отдельно — переключайте этажи в выпадающем списке выше.'}
+          {mode === 'apts' && ' Выберите квартиру слева, потом обведите её контур на схеме этажа.'}
         </div>
 
-        {/* Polygon editor */}
-        <PolygonEditor
-          imgSrc={siteRender}
-          value={mode === 'korpus' ? (sel.polygon || '') : (sel.floorPolygons?.[floorNum] || '')}
-          onChange={mode === 'korpus' ? onChangeKorpusPolygon : onChangeFloorPolygon}
-        />
+        {/* Editor: korpus / floor mode uses site render; apts mode uses floor schema */}
+        {mode !== 'apts' ? (
+          <PolygonEditor
+            imgSrc={siteRender}
+            value={mode === 'korpus' ? (sel.polygon || '') : (sel.floorPolygons?.[floorNum] || '')}
+            onChange={mode === 'korpus' ? onChangeKorpusPolygon : onChangeFloorPolygon}
+          />
+        ) : (
+          <div>
+            {/* Floor schema URL input */}
+            <div style={{ marginBottom: 12, padding: 12, background: '#161b27', borderRadius: 10 }}>
+              <div className="form-label" style={{ marginBottom: 6 }}>Путь к фото-планировке этажа {floorNum}</div>
+              <input value={floorSchemaUrl} onChange={e => setFloorSchemaUrl(e.target.value)} placeholder="assets/floor-k1-f1.jpg" />
+            </div>
+
+            {!floorSchemaUrl ? (
+              <div style={{ padding: 24, background: '#161b27', borderRadius: 10, textAlign: 'center', color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>
+                Укажите путь к фото-планировке выше, чтобы начать обводить квартиры
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 14 }}>
+                {/* Apartment list (filter by korpus + floor) */}
+                <div style={{ background: '#161b27', borderRadius: 10, padding: 12, maxHeight: 520, overflowY: 'auto' }}>
+                  <div className="form-label" style={{ marginBottom: 8 }}>Квартиры на этаже {floorNum} ({aptsOnFloor.length})</div>
+                  {aptsOnFloor.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+                      Нет квартир с korpus={selId}, floor={floorNum}. Добавьте их во вкладке «Квартиры», указав корпус и этаж.
+                    </div>
+                  ) : aptsOnFloor.map(a => {
+                    const active = activeAptId === a.id;
+                    const has = a.polygon && a.polygon.trim();
+                    return (
+                      <div key={a.id} onClick={() => setActiveAptId(a.id)}
+                        style={{
+                          padding: '10px 12px', marginBottom: 6, borderRadius: 8,
+                          cursor: 'pointer', transition: 'all 150ms',
+                          background: active ? 'rgba(227,133,77,0.18)' : 'rgba(255,255,255,0.04)',
+                          border: '1.5px solid', borderColor: active ? '#E3854D' : 'rgba(255,255,255,0.06)',
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Кв. {a.id} · {a.rooms}-к · {a.area}м²</span>
+                          <span style={{ fontSize: 14, color: has ? '#4ade80' : 'rgba(255,255,255,0.3)' }}>{has ? '✓' : '○'}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                          {a.available ? 'Свободна' : 'Бронь/Продана'} · {a.price?.toLocaleString('ru-RU')} ₽
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Editor — schema with all polys overlaid, only active is editable */}
+                <AptSchemaEditor
+                  imgSrc={floorSchemaUrl}
+                  apts={aptsOnFloor}
+                  activeId={activeAptId}
+                  onChange={onChangeAptPolygon}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Save */}
         <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
