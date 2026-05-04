@@ -1049,19 +1049,12 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
 
           </div>
 
-          {/* Sliders row: стоимость + площадь */}
-          <div style={{ padding: '0 28px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, borderTop: '1px solid #f4f1ed' }}>
+          {/* Sliders — stacked: стоимость + площадь, друг под другом */}
+          <div style={{ padding: '20px 28px 22px', borderTop: '1px solid #f4f1ed', display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Стоимость */}
-            <div style={{ paddingTop: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#bbb', fontWeight: 600 }}>Стоимость</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', letterSpacing: '-0.01em' }}>
-                  {fmtPrice(priceRange[0])}
-                  <span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>
-                  {fmtPrice(priceRange[1])}
-                </span>
-              </div>
-              <div className="price-slider-wrap">
+            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 200px', alignItems: 'center', gap: 24 }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Стоимость</span>
+              <div className="price-slider-wrap" style={{ height: 24 }}>
                 <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
                 <div style={{ position:'absolute', top:'50%', height:4, left:`${fillL}%`, right:`${100-fillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
                 <input type="range" min={minBound} max={maxBound} step={50000} value={priceRange[0]}
@@ -1071,19 +1064,15 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
                   onChange={e => { const v=Number(e.target.value); if(v>priceRange[0]+100000) setPriceRange([priceRange[0],v]); }}
                   style={{ zIndex: 4 }} />
               </div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em' }}>
+                {fmtPrice(priceRange[0])}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>{fmtPrice(priceRange[1])}
+              </span>
             </div>
 
             {/* Площадь */}
-            <div style={{ paddingTop: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#bbb', fontWeight: 600 }}>Площадь, м²</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', letterSpacing: '-0.01em' }}>
-                  {areaRange[0]}
-                  <span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>
-                  {areaRange[1]} м²
-                </span>
-              </div>
-              <div className="price-slider-wrap">
+            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 200px', alignItems: 'center', gap: 24 }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Площадь</span>
+              <div className="price-slider-wrap" style={{ height: 24 }}>
                 <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
                 <div style={{ position:'absolute', top:'50%', height:4, left:`${aFillL}%`, right:`${100-aFillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
                 <input type="range" min={minArea} max={maxArea} step={1} value={areaRange[0]}
@@ -1093,6 +1082,9 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
                   onChange={e => { const v=Number(e.target.value); if(v>areaRange[0]+1) setAreaRange([areaRange[0],v]); }}
                   style={{ zIndex: 4 }} />
               </div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em' }}>
+                {areaRange[0]}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>{areaRange[1]} м²
+              </span>
             </div>
           </div>
         </div>
@@ -2075,7 +2067,9 @@ function Promos() {
                 <h3 style={{ fontFamily:'var(--font-display)', fontSize:'clamp(22px,2.5vw,30px)', color:'#fff', textTransform:'uppercase', lineHeight:1.1, marginBottom:14 }}>{p.title}</h3>
                 <p style={{ fontSize:14, color:'rgba(255,255,255,0.5)', lineHeight:1.65, marginBottom:28 }}>{p.desc}</p>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <button className="btn btn-primary" style={{ background:accent, fontSize:13, padding:'11px 22px' }} onMouseDown={addRipple}>Узнать подробнее</button>
+                  {p.showButton !== false ? (
+                    <button className="btn btn-primary" style={{ background:accent, fontSize:13, padding:'11px 22px' }} onMouseDown={addRipple}>Узнать подробнее</button>
+                  ) : <span />}
                   <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)', textAlign:'right' }}>До {p.expires}</div>
                 </div>
               </div>
@@ -2479,7 +2473,10 @@ function useReveal() {
 function App() {
   const [activeSection, setActiveSection] = useState('hero');
   const [selectedApt, setSelectedApt] = useState(null);
-  const [view, setView] = useState('home'); // 'home' | 'apartments'
+  const [view, setView] = useState(() => {
+    const p = (typeof window !== 'undefined' ? window.location.pathname : '/').replace(/\/$/, '') || '/';
+    return p === '/flat' ? 'apartments' : 'home';
+  });
   useReveal();
 
   const handleNav = useCallback((sectionId) => {
@@ -2491,8 +2488,27 @@ function App() {
     }
   }, []);
 
-  const goAllApts = () => { setView('apartments'); window.scrollTo({ top: 0, behavior: 'auto' }); };
-  const goHome = () => { setView('home'); window.scrollTo({ top: 0, behavior: 'auto' }); };
+  const goAllApts = () => {
+    if (window.location.pathname !== '/flat') window.history.pushState({}, '', '/flat');
+    setView('apartments');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+  const goHome = () => {
+    if (window.location.pathname !== '/') window.history.pushState({}, '', '/');
+    setView('home');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  // Sync state on browser back/forward
+  useEffect(() => {
+    const onPop = () => {
+      const p = window.location.pathname.replace(/\/$/, '') || '/';
+      setView(p === '/flat' ? 'apartments' : 'home');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     if (view !== 'home') return;

@@ -1095,6 +1095,18 @@ function PromosTab({ toast }) {
                   ))}
                 </div>
               </div>
+              <div className="form-group full">
+                <span className="form-label">Кнопка «Узнать подробнее»</span>
+                <div className="toggle-wrap">
+                  <label className="toggle">
+                    <input type="checkbox" checked={p.showButton !== false} onChange={e=>set(i,'showButton', e.target.checked)} />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span className="toggle-label" style={{ color: p.showButton !== false ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
+                    {p.showButton !== false ? 'Кнопка показывается' : 'Кнопка скрыта'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         ))}
