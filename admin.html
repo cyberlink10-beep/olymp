@@ -155,6 +155,23 @@
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
+/* ─── BOOTSTRAP FROM SERVER (async, gates render) ─── */
+async function __bootstrapFromServer() {
+  try {
+    const r = await fetch('/api/data', { cache: 'no-store' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data && typeof data === 'object') {
+      Object.keys(data).forEach(k => {
+        try { localStorage.setItem(k, JSON.stringify(data[k])); } catch (e) {}
+      });
+    }
+  } catch (e) {}
+}
+
+(async () => {
+await __bootstrapFromServer();
+
 /* ─── CONSTANTS ─── */
 const ADMIN_PASSWORD = 'geroi2025';
 
@@ -1396,6 +1413,7 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+})();
 </script>
 </body>
 </html>

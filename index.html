@@ -328,6 +328,23 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
+/* ─── BOOTSTRAP FROM SERVER (async, gates React render) ─── */
+async function __bootstrapFromServer() {
+  try {
+    const r = await fetch('/api/data', { cache: 'no-store' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data && typeof data === 'object') {
+      Object.keys(data).forEach(k => {
+        try { localStorage.setItem(k, JSON.stringify(data[k])); } catch (e) {}
+      });
+    }
+  } catch (e) { /* offline — keep localStorage as is */ }
+}
+
+(async () => {
+await __bootstrapFromServer();
+
 /* ─── RIPPLE HELPER ─── */
 function addRipple(e) {
   const btn = e.currentTarget;
@@ -2234,6 +2251,7 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+})();
 </script>
 </body>
 </html>
