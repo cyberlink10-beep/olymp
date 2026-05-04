@@ -394,8 +394,9 @@ function addRipple(e) {
 }
 
 /* ─── HEADER ─── */
-function Header({ activeSection, onNav }) {
-  const [scrolled, setScrolled] = useState(false);
+function Header({ activeSection, onNav, forceScrolled = false }) {
+  const [scrolledRaw, setScrolled] = useState(false);
+  const scrolled = forceScrolled || scrolledRaw;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -960,7 +961,7 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
           {/* Top accent line */}
           <div style={{ height: 3, background: 'linear-gradient(90deg, #E05520 0%, #D94E1F 50%, rgba(217,78,31,0.2) 100%)' }} />
 
-          <div style={{ padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
+          <div style={{ padding: '22px 28px', display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 28, alignItems: 'center' }}>
 
             {/* Rooms — separated pills with wow hover */}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1006,86 +1007,71 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
               })}
             </div>
 
-            {/* Divider */}
-            <div style={{ width: 1, height: 40, background: '#ece9e5', margin: '0 24px', flexShrink: 0 }} />
+            {/* Stacked sliders — стоимость + площадь */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 8px' }}>
+              {/* Стоимость */}
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 170px', gap: 16, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Стоимость</span>
+                <div className="price-slider-wrap" style={{ height: 22 }}>
+                  <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
+                  <div style={{ position:'absolute', top:'50%', height:4, left:`${fillL}%`, right:`${100-fillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
+                  <input type="range" min={minBound} max={maxBound} step={50000} value={priceRange[0]}
+                    onChange={e => { const v=Number(e.target.value); if(v<priceRange[1]-100000) setPriceRange([v,priceRange[1]]); }}
+                    style={{ zIndex: priceRange[0] > maxBound-(maxBound-minBound)*0.1 ? 5 : 3 }} />
+                  <input type="range" min={minBound} max={maxBound} step={50000} value={priceRange[1]}
+                    onChange={e => { const v=Number(e.target.value); if(v>priceRange[0]+100000) setPriceRange([priceRange[0],v]); }}
+                    style={{ zIndex: 4 }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+                  {fmtPrice(priceRange[0])}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 4px' }}>—</span>{fmtPrice(priceRange[1])}
+                </span>
+              </div>
 
-            {/* Sort — no label, icon buttons */}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {[
-                { v:'price-asc',  l:'Цена',    dir:'↑' },
-                { v:'price-desc', l:'Цена',    dir:'↓' },
-                { v:'area-asc',   l:'Площадь', dir:'↑' },
-                { v:'area-desc',  l:'Площадь', dir:'↓' },
-              ].map(s => {
-                const on = sortBy === s.v;
-                return (
-                  <button key={s.v} onClick={() => setSortBy(s.v)} style={{
-                    padding: '8px 13px', borderRadius: 9, fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', border: '1.5px solid',
-                    transition: 'all 180ms cubic-bezier(.4,0,.2,1)',
-                    background: on ? 'rgba(217,78,31,0.07)' : 'transparent',
-                    borderColor: on ? 'rgba(217,78,31,0.45)' : '#ece9e5',
-                    color: on ? 'var(--c-brand)' : '#bbb',
-                    fontFamily: 'var(--font-body)',
-                    display: 'flex', alignItems: 'center', gap: 3,
-                  }}>
-                    {s.l}
-                    <span style={{ fontSize: 11, opacity: on ? 1 : 0.7 }}>{s.dir}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, height: 40, background: '#ece9e5', margin: '0 24px', flexShrink: 0 }} />
-
-            {/* Counter */}
-            <div style={{ textAlign: 'center', minWidth: 52 }}>
-              <div style={{ fontFamily:'var(--font-display)', fontSize:38, lineHeight:1, color:'var(--c-brand)', fontWeight:900, letterSpacing:'-0.02em' }}>{filtered.length}</div>
-              <div style={{ fontSize:10, color:'#ccc', letterSpacing:'0.1em', textTransform:'uppercase', marginTop:2 }}>
-                {filtered.length===1?'квартира':filtered.length<5?'квартиры':'квартир'}
+              {/* Площадь */}
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 170px', gap: 16, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Площадь</span>
+                <div className="price-slider-wrap" style={{ height: 22 }}>
+                  <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
+                  <div style={{ position:'absolute', top:'50%', height:4, left:`${aFillL}%`, right:`${100-aFillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
+                  <input type="range" min={minArea} max={maxArea} step={1} value={areaRange[0]}
+                    onChange={e => { const v=Number(e.target.value); if(v<areaRange[1]-1) setAreaRange([v,areaRange[1]]); }}
+                    style={{ zIndex: areaRange[0] > maxArea-(maxArea-minArea)*0.1 ? 5 : 3 }} />
+                  <input type="range" min={minArea} max={maxArea} step={1} value={areaRange[1]}
+                    onChange={e => { const v=Number(e.target.value); if(v>areaRange[0]+1) setAreaRange([areaRange[0],v]); }}
+                    style={{ zIndex: 4 }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+                  {areaRange[0]}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 4px' }}>—</span>{areaRange[1]} м²
+                </span>
               </div>
             </div>
 
-          </div>
-
-          {/* Sliders — stacked: стоимость + площадь, друг под другом */}
-          <div style={{ padding: '20px 28px 22px', borderTop: '1px solid #f4f1ed', display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {/* Стоимость */}
-            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 200px', alignItems: 'center', gap: 24 }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Стоимость</span>
-              <div className="price-slider-wrap" style={{ height: 24 }}>
-                <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
-                <div style={{ position:'absolute', top:'50%', height:4, left:`${fillL}%`, right:`${100-fillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
-                <input type="range" min={minBound} max={maxBound} step={50000} value={priceRange[0]}
-                  onChange={e => { const v=Number(e.target.value); if(v<priceRange[1]-100000) setPriceRange([v,priceRange[1]]); }}
-                  style={{ zIndex: priceRange[0] > maxBound-(maxBound-minBound)*0.1 ? 5 : 3 }} />
-                <input type="range" min={minBound} max={maxBound} step={50000} value={priceRange[1]}
-                  onChange={e => { const v=Number(e.target.value); if(v>priceRange[0]+100000) setPriceRange([priceRange[0],v]); }}
-                  style={{ zIndex: 4 }} />
+            {/* "Смотреть все N квартир →" — link to /flat (new tab) */}
+            {!fullPage && (
+              <a href="/flat" target="_blank" rel="noopener noreferrer"
+                style={{ textDecoration: 'none', textAlign: 'center', minWidth: 110, display: 'block', padding: '6px 10px', borderRadius: 12, transition: 'all 220ms' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(217,78,31,0.06)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--c-brand)', fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  Смотреть все
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 38, lineHeight: 1, color: 'var(--c-brand)', fontWeight: 900, letterSpacing: '-0.02em' }}>{filtered.length}</div>
+                <div style={{ fontSize: 10, color: '#ccc', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>
+                  {filtered.length === 1 ? 'квартира' : filtered.length < 5 ? 'квартиры' : 'квартир'}
+                </div>
+              </a>
+            )}
+            {fullPage && (
+              <div style={{ textAlign: 'center', minWidth: 110 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 38, lineHeight: 1, color: 'var(--c-brand)', fontWeight: 900, letterSpacing: '-0.02em' }}>{filtered.length}</div>
+                <div style={{ fontSize: 10, color: '#ccc', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>
+                  {filtered.length === 1 ? 'квартира' : filtered.length < 5 ? 'квартиры' : 'квартир'}
+                </div>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em' }}>
-                {fmtPrice(priceRange[0])}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>{fmtPrice(priceRange[1])}
-              </span>
-            </div>
+            )}
 
-            {/* Площадь */}
-            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 200px', alignItems: 'center', gap: 24 }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#999', fontWeight: 600 }}>Площадь</span>
-              <div className="price-slider-wrap" style={{ height: 24 }}>
-                <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, transform:'translateY(-50%)', borderRadius:99, background:'#ede9e5' }} />
-                <div style={{ position:'absolute', top:'50%', height:4, left:`${aFillL}%`, right:`${100-aFillR}%`, transform:'translateY(-50%)', borderRadius:99, background:'linear-gradient(90deg,#E05520,#D94E1F)', boxShadow:'0 0 8px rgba(217,78,31,0.35)' }} />
-                <input type="range" min={minArea} max={maxArea} step={1} value={areaRange[0]}
-                  onChange={e => { const v=Number(e.target.value); if(v<areaRange[1]-1) setAreaRange([v,areaRange[1]]); }}
-                  style={{ zIndex: areaRange[0] > maxArea-(maxArea-minArea)*0.1 ? 5 : 3 }} />
-                <input type="range" min={minArea} max={maxArea} step={1} value={areaRange[1]}
-                  onChange={e => { const v=Number(e.target.value); if(v>areaRange[0]+1) setAreaRange([areaRange[0],v]); }}
-                  style={{ zIndex: 4 }} />
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-charcoal)', textAlign: 'right', letterSpacing: '-0.01em' }}>
-                {areaRange[0]}<span style={{ color: '#ccc', fontWeight: 400, margin: '0 6px' }}>—</span>{areaRange[1]} м²
-              </span>
-            </div>
           </div>
         </div>
 
@@ -1142,8 +1128,8 @@ function ApartmentCatalog({ onSelectApt, fullPage = false, onShowAll, onBackHome
                   return ghostBtn('Ещё квартиры', () => setRevealed(Math.min(HOME_EXPANDED, total)));
                 }
                 if (revealed >= HOME_EXPANDED || total <= HOME_EXPANDED) {
-                  // Show "view all"
-                  return ghostBtn('Посмотреть все квартиры →', () => onShowAll && onShowAll(), true);
+                  // Show "view all" — opens /flat in new tab
+                  return ghostBtn('Посмотреть все квартиры →', () => window.open('/flat', '_blank', 'noopener'), true);
                 }
                 return null;
               })()}
@@ -2480,34 +2466,35 @@ function App() {
   useReveal();
 
   const handleNav = useCallback((sectionId) => {
+    // On /flat — navigate to home with hash (full reload)
+    if (view === 'apartments') {
+      window.location.href = '/#' + sectionId;
+      return;
+    }
     setActiveSection(sectionId);
     const el = document.getElementById(sectionId);
     if (el) {
       const top = el.getBoundingClientRect().top + window.scrollY - 72;
       window.scrollTo({ top, behavior: 'smooth' });
     }
-  }, []);
+  }, [view]);
 
-  const goAllApts = () => {
-    if (window.location.pathname !== '/flat') window.history.pushState({}, '', '/flat');
-    setView('apartments');
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  };
-  const goHome = () => {
-    if (window.location.pathname !== '/') window.history.pushState({}, '', '/');
-    setView('home');
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  };
+  const goHome = () => { window.location.href = '/'; };
 
-  // Sync state on browser back/forward
+  // On home, scroll to hash if present (after navigation from /flat)
   useEffect(() => {
-    const onPop = () => {
-      const p = window.location.pathname.replace(/\/$/, '') || '/';
-      setView(p === '/flat' ? 'apartments' : 'home');
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    if (view !== 'home') return;
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      setTimeout(() => {
+        const el = document.getElementById(hash);
+        if (el) {
+          const top = el.getBoundingClientRect().top + window.scrollY - 72;
+          window.scrollTo({ top, behavior: 'smooth' });
+          setActiveSection(hash);
+        }
+      }, 200);
+    }
   }, []);
 
   useEffect(() => {
@@ -2524,24 +2511,45 @@ function App() {
   if (view === 'apartments') {
     return (
       <div>
-        <Header activeSection="catalog" onNav={() => goHome()} />
-        <div style={{ paddingTop: 100, paddingBottom: 8 }}>
+        <Header activeSection="catalog" onNav={handleNav} forceScrolled />
+        <div style={{ paddingTop: 110, paddingBottom: 16, background: 'var(--c-surface)' }}>
           <div className="container">
             <button onClick={goHome} style={{
-              padding: '10px 18px 10px 14px', borderRadius: 99,
-              background: '#fff', border: '1.5px solid #ece9e5',
-              fontSize: 13, fontWeight: 600, color: 'var(--c-charcoal)',
-              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
-              fontFamily: 'var(--font-body)',
-              transition: 'all 200ms cubic-bezier(0.4,0,0.2,1)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              padding: '12px 26px 12px 18px', borderRadius: 99,
+              background: 'linear-gradient(135deg, #fff, #faf9f7)',
+              border: '1.5px solid #e8e5e1',
+              fontSize: 13, fontWeight: 700, color: 'var(--c-charcoal)',
+              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
+              fontFamily: 'var(--font-body)', letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              transition: 'all 240ms cubic-bezier(0.4,0,0.2,1)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+              position: 'relative', overflow: 'hidden',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform='translateX(-2px)'; e.currentTarget.style.borderColor='var(--c-brand)'; e.currentTarget.style.color='var(--c-brand)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform='translateX(0)'; e.currentTarget.style.borderColor='#ece9e5'; e.currentTarget.style.color='var(--c-charcoal)'; }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateX(-3px) translateY(-1px)';
+                e.currentTarget.style.borderColor = 'var(--c-brand)';
+                e.currentTarget.style.color = 'var(--c-brand)';
+                e.currentTarget.style.boxShadow = '0 8px 28px rgba(217,78,31,0.22), inset 0 1px 0 rgba(255,255,255,0.8)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateX(0) translateY(0)';
+                e.currentTarget.style.borderColor = '#e8e5e1';
+                e.currentTarget.style.color = 'var(--c-charcoal)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)';
+              }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <span style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #E05520, #C43818)', color: '#fff',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(217,78,31,0.4)',
+                flexShrink: 0,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
               На главную
             </button>
           </div>
