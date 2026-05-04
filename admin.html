@@ -24,6 +24,7 @@
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
@@ -361,7 +362,7 @@ function LoginScreen({ onLogin }) {
 }
 
 /* ─── APARTMENT MODAL ─── */
-const EMPTY_APT = { rooms: 1, area: '', floor: '', section: 1, price: '', available: true, badge: '', img: '' };
+const EMPTY_APT = { rooms: 1, area: '', floor: '', korpus: 1, section: 1, price: '', available: true, badge: '', img: '', polygon: '' };
 
 function AptModal({ apt, onSave, onClose }) {
   const [form, setForm] = useState(apt ? { ...apt, badge: apt.badge || '' } : EMPTY_APT);
@@ -376,6 +377,7 @@ function AptModal({ apt, onSave, onClose }) {
       ...form,
       area: parseFloat(form.area) || 0,
       floor: parseInt(form.floor) || 1,
+      korpus: parseInt(form.korpus) || 1,
       section: parseInt(form.section) || 1,
       price: parseInt(form.price) || 0,
       badge: form.badge || null,
@@ -414,8 +416,15 @@ function AptModal({ apt, onSave, onClose }) {
 
               <div className="form-group">
                 <span className="form-label">Корпус</span>
-                <select value={form.section} onChange={e => set('section', Number(e.target.value))}>
+                <select value={form.korpus || 1} onChange={e => set('korpus', Number(e.target.value))}>
                   {[1,2,3,4].map(n => <option key={n} value={n}>Корпус {n}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <span className="form-label">Секция</span>
+                <select value={form.section || 1} onChange={e => set('section', Number(e.target.value))}>
+                  {[1,2,3,4].map(n => <option key={n} value={n}>Секция {n}</option>)}
                 </select>
               </div>
 
@@ -481,14 +490,126 @@ function AptModal({ apt, onSave, onClose }) {
 }
 
 /* ─── APARTMENTS TAB ─── */
+/* ─── EXCEL HELPERS for apartments ─── */
+const XLS_COLUMNS = [
+  { key: 'id',        label: 'ID',           example: 1,    type: 'int' },
+  { key: 'korpus',    label: 'Корпус',       example: 1,    type: 'int' },
+  { key: 'floor',     label: 'Этаж',         example: 1,    type: 'int' },
+  { key: 'section',   label: 'Секция',       example: 1,    type: 'int' },
+  { key: 'rooms',     label: 'Комнат',       example: 2,    type: 'int' },
+  { key: 'area',      label: 'Площадь м²',   example: 62.95, type: 'float' },
+  { key: 'price',     label: 'Цена ₽',       example: 6100000, type: 'int' },
+  { key: 'available', label: 'Статус',       example: 'свободна', type: 'status' },
+  { key: 'badge',     label: 'Метка',        example: '',   type: 'text' },
+  { key: 'img',       label: 'Картинка',     example: 'assets/2-k.png', type: 'text' },
+  { key: 'polygon',   label: 'Полигон',      example: '', type: 'text' },
+];
+
+function aptToRow(a) {
+  return {
+    'ID': a.id,
+    'Корпус': a.korpus ?? 1,
+    'Этаж': a.floor ?? '',
+    'Секция': a.section ?? 1,
+    'Комнат': a.rooms ?? 1,
+    'Площадь м²': a.area ?? '',
+    'Цена ₽': a.price ?? '',
+    'Статус': a.available ? 'свободна' : 'продана',
+    'Метка': a.badge ?? '',
+    'Картинка': a.img ?? '',
+    'Полигон': a.polygon ?? '',
+  };
+}
+function rowToApt(r, idx) {
+  const status = String(r['Статус'] || '').toLowerCase().trim();
+  const sold = ['продана', 'продано', 'бронь', 'забронирована', 'sold', 'booked', 'no', 'нет', 'false'].includes(status);
+  const id = Number(r['ID']) || (Date.now() + idx);
+  return {
+    id,
+    korpus:  Number(r['Корпус'])  || 1,
+    floor:   Number(r['Этаж'])    || 1,
+    section: Number(r['Секция'])  || 1,
+    rooms:   Number(r['Комнат'])  || 1,
+    area:    Number(r['Площадь м²']) || 0,
+    price:   Number(r['Цена ₽']) || 0,
+    available: !sold,
+    badge:   String(r['Метка'] || '').trim() || null,
+    img:     String(r['Картинка'] || '').trim(),
+    polygon: String(r['Полигон'] || '').trim(),
+  };
+}
+
+function downloadExcelTemplate(currentApts) {
+  if (typeof XLSX === 'undefined') { alert('Библиотека XLSX не загружена. Перезагрузите страницу.'); return; }
+  const rows = currentApts && currentApts.length
+    ? currentApts.map(aptToRow)
+    : [Object.fromEntries(XLS_COLUMNS.map(c => [c.label, c.example]))];
+  const ws = XLSX.utils.json_to_sheet(rows, { header: XLS_COLUMNS.map(c => c.label) });
+  // Column widths
+  ws['!cols'] = XLS_COLUMNS.map(c => ({ wch: Math.max(c.label.length, 12) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Квартиры');
+  // Add a hint sheet with allowed values
+  const hints = [
+    ['Поле', 'Допустимые значения'],
+    ['Корпус', '1, 2, 3, 4'],
+    ['Статус', 'свободна / продана / бронь'],
+    ['Метка', 'Акция, Хит, Премиум, Новинка, Последняя, или пусто'],
+    ['Картинка', 'путь к файлу assets/... или полный URL https://...'],
+    ['Полигон', 'координаты x,y x,y x,y... в виде строки (необязательно)'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(hints);
+  ws2['!cols'] = [{ wch: 12 }, { wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Подсказки');
+  XLSX.writeFile(wb, 'apartments-template.xlsx');
+}
+
+async function readExcelFile(file) {
+  if (typeof XLSX === 'undefined') throw new Error('Библиотека XLSX не загружена');
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  return rows.map((r, i) => rowToApt(r, i)).filter(a => a.area > 0);
+}
+
 function ApartmentsTab({ toast }) {
   const [apts, setApts] = useState(() => ls.load('geroi_apts', DEFAULT_APARTMENTS));
   const [modal, setModal] = useState(null); // null | 'add' | apt object
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('id');
+  const xlsInputRef = useRef(null);
 
   const persist = next => { setApts(next); ls.save('geroi_apts', next); };
+
+  const handleImportXlsx = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const newApts = await readExcelFile(file);
+      if (!newApts.length) { alert('В файле нет ни одной строки с данными'); return; }
+      const choice = confirm(
+        `Найдено ${newApts.length} квартир в файле.\n\n` +
+        `OK = ЗАМЕНИТЬ все ${apts.length} текущих квартир на эти ${newApts.length}\n` +
+        `Cancel = ОБЪЕДИНИТЬ (обновить совпадающие по ID, добавить новые)`
+      );
+      if (choice) {
+        persist(newApts);
+        toast(`Импортировано ${newApts.length} квартир (заменено)`);
+      } else {
+        const byId = new Map(apts.map(a => [a.id, a]));
+        for (const a of newApts) byId.set(a.id, { ...byId.get(a.id), ...a });
+        const merged = Array.from(byId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
+        persist(merged);
+        toast(`Импортировано: ${newApts.length}, всего теперь: ${merged.length}`);
+      }
+    } catch (err) {
+      alert('Ошибка импорта: ' + err.message);
+    } finally {
+      if (xlsInputRef.current) xlsInputRef.current.value = '';
+    }
+  };
 
   const handleSave = form => {
     if (modal === 'add') {
@@ -582,8 +703,12 @@ function ApartmentsTab({ toast }) {
               <option value="floor">По этажу</option>
             </select>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={reset}>Сбросить данные</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => downloadExcelTemplate([])} title="Скачать пустой шаблон с примером">📋 Шаблон</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => downloadExcelTemplate(apts)} title="Выгрузить текущие квартиры в Excel">📤 Выгрузить</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => xlsInputRef.current?.click()} title="Импорт из Excel">📥 Импорт</button>
+            <input ref={xlsInputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportXlsx} />
+            <button className="btn btn-secondary btn-sm" onClick={reset}>Сбросить</button>
             <button className="btn btn-primary" onClick={() => setModal('add')}>+ Добавить квартиру</button>
           </div>
         </div>
