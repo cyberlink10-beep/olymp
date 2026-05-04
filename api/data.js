@@ -34,8 +34,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Body must be an object' });
       }
 
-      // MERGE with existing data (do not wipe other keys)
-      const existing = await readBlob();
+      // ?replace=1 → replace whole blob (rare, used for cleanup)
+      // default → MERGE with existing data (do not wipe other keys)
+      const url = new URL(req.url, 'http://x');
+      const isReplace = url.searchParams.get('replace') === '1';
+      const existing = isReplace ? {} : await readBlob();
       const merged = { ...existing, ...incoming };
 
       await put(FILENAME, JSON.stringify(merged), {
