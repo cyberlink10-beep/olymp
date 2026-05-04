@@ -437,11 +437,11 @@ function AptModal({ apt, onSave, onClose }) {
               </div>
 
               <div className="form-group full">
-                <span className="form-label">Фото (путь к файлу или URL)</span>
-                <input
-                  type="text" value={form.img}
-                  onChange={e => set('img', e.target.value)}
-                  placeholder="assets/render-1.jpg"
+                <ImageUploader
+                  label="Планировка квартиры (фото)"
+                  value={form.img}
+                  onChange={url => { set('img', url); setImgErr(false); }}
+                  placeholder="assets/1-k.png"
                 />
               </div>
 
@@ -449,7 +449,7 @@ function AptModal({ apt, onSave, onClose }) {
                 <div className="form-group full">
                   <span className="form-label">Предпросмотр фото</span>
                   {!imgErr
-                    ? <img src={form.img} onError={() => setImgErr(true)} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} />
+                    ? <img src={form.img} onError={() => setImgErr(true)} alt="" style={{ width: '100%', height: 160, objectFit: 'contain', background: '#0c0a08', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }} />
                     : <div style={{ height: 80, background: 'rgba(255,255,255,0.04)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Не удалось загрузить фото</div>
                   }
                 </div>
@@ -1250,6 +1250,68 @@ function PolygonEditor({ value, onChange, imgSrc }) {
   );
 }
 
+/* Image upload helper — sends raw bytes to /api/upload and returns the public URL */
+async function uploadImageFile(file) {
+  if (!file) throw new Error('Нет файла');
+  if (file.size > 7.5 * 1024 * 1024) throw new Error('Файл слишком большой (макс 7.5 MB)');
+  const r = await fetch('/api/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-admin-password': ADMIN_PASSWORD,
+      'x-filename': encodeURIComponent(file.name || 'upload'),
+    },
+    body: file,
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  const data = await r.json();
+  return data.url;
+}
+
+/* Reusable file-picker that uploads to Vercel Blob and gives back the URL */
+function ImageUploader({ value, onChange, label, accept = 'image/*', placeholder = 'или вставьте URL картинки' }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ref = useRef(null);
+  const onPick = async e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setBusy(true); setErr('');
+    try {
+      const url = await uploadImageFile(f);
+      onChange(url);
+    } catch (e2) {
+      setErr(e2.message || 'Ошибка');
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = '';
+    }
+  };
+  return (
+    <div>
+      {label && <div className="form-label" style={{ marginBottom: 6 }}>{label}</div>}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => ref.current?.click()} disabled={busy}
+          className="btn btn-primary" style={{ flexShrink: 0, opacity: busy ? 0.6 : 1, cursor: busy ? 'wait' : 'pointer' }}>
+          {busy ? '⏳ Загрузка...' : '📤 Загрузить файл'}
+        </button>
+        <input ref={ref} type="file" accept={accept} style={{ display: 'none' }} onChange={onPick} />
+        <input type="text" value={value || ''} onChange={e => onChange(e.target.value)}
+          placeholder={placeholder} style={{ flex: 1, minWidth: 200 }} />
+      </div>
+      {value && (
+        <div style={{ marginTop: 8 }}>
+          <img src={value} alt="" style={{ maxHeight: 80, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+        </div>
+      )}
+      {err && <div style={{ marginTop: 6, fontSize: 12, color: '#f87171' }}>⚠ {err}</div>}
+    </div>
+  );
+}
+
 /* Editor for apartment polygons over a floor-schema image.
    Shows all apartment polygons (read-only translucent) plus an editable one for activeId. */
 function AptSchemaEditor({ imgSrc, apts, activeId, onChange }) {
@@ -1460,10 +1522,14 @@ function KorpusesTab({ toast }) {
           />
         ) : (
           <div>
-            {/* Floor schema URL input */}
+            {/* Floor schema upload */}
             <div style={{ marginBottom: 12, padding: 12, background: '#161b27', borderRadius: 10 }}>
-              <div className="form-label" style={{ marginBottom: 6 }}>Путь к фото-планировке этажа {floorNum}</div>
-              <input value={floorSchemaUrl} onChange={e => setFloorSchemaUrl(e.target.value)} placeholder="assets/floor-k1-f1.jpg" />
+              <ImageUploader
+                label={`Фото-планировка этажа ${floorNum}`}
+                value={floorSchemaUrl}
+                onChange={url => setFloorSchemaUrl(url)}
+                placeholder="assets/floor-k1-f1.jpg"
+              />
             </div>
 
             {!floorSchemaUrl ? (
@@ -1520,10 +1586,14 @@ function KorpusesTab({ toast }) {
           <button className="btn btn-secondary" onClick={resetAll}>Сбросить к стандартным</button>
         </div>
 
-        {/* Site render path */}
+        {/* Site render upload */}
         <div style={{ marginTop: 28, padding: 16, background: '#161b27', borderRadius: 10 }}>
-          <div className="form-label" style={{ marginBottom: 6 }}>Путь к фотографии комплекса</div>
-          <input value={siteRender} onChange={e => setSiteRender(e.target.value)} onBlur={() => { ls.save('geroi_site_render', siteRender); toast('Путь к фото сохранён'); }} placeholder="assets/site-render.jpg" />
+          <ImageUploader
+            label="Фотография комплекса (вид сверху)"
+            value={siteRender}
+            onChange={url => { setSiteRender(url); ls.save('geroi_site_render', url); toast('Фото комплекса обновлено'); }}
+            placeholder="assets/site-render.jpg"
+          />
         </div>
 
       </div>
