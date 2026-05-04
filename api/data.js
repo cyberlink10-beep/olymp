@@ -8,7 +8,7 @@ const noStore = (res) => {
 };
 
 async function readBlob() {
-  const { blobs } = await list({ prefix: FILENAME, limit: 1 });
+  const { blobs } = await list({ prefix: FILENAME, limit: 50 });
   const found = blobs.find(b => b.pathname === FILENAME);
   if (!found) return {};
   const r = await fetch(found.url, { cache: 'no-store' });
@@ -16,10 +16,21 @@ async function readBlob() {
   try { return await r.json(); } catch { return {}; }
 }
 
+async function listAllBlobs() {
+  const { blobs } = await list({ limit: 100 });
+  return blobs.map(b => ({ pathname: b.pathname, url: b.url, size: b.size, uploadedAt: b.uploadedAt }));
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       noStore(res);
+      // Debug mode: ?debug=1 returns blob list info
+      const url0 = new URL(req.url, 'http://x');
+      if (url0.searchParams.get('debug') === '1') {
+        const blobs = await listAllBlobs();
+        return res.status(200).json({ blobs, FILENAME, blobCount: blobs.length });
+      }
       const data = await readBlob();
       return res.status(200).json(data);
     }
@@ -62,14 +73,19 @@ export default async function handler(req, res) {
         }
       }
 
-      await put(FILENAME, JSON.stringify(merged), {
+      const putResult = await put(FILENAME, JSON.stringify(merged), {
         access: 'public',
         addRandomSuffix: false,
         allowOverwrite: true,
         contentType: 'application/json',
       });
       noStore(res);
-      return res.status(200).json({ ok: true, keys: Object.keys(merged) });
+      return res.status(200).json({
+        ok: true,
+        keys: Object.keys(merged),
+        putUrl: putResult?.url,
+        putPathname: putResult?.pathname,
+      });
     }
 
     res.setHeader('Allow', 'GET, POST');
