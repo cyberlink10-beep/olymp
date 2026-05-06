@@ -3,8 +3,11 @@ import { Redis } from '@upstash/redis';
 const KEY = 'site-data';
 const ADMIN_PASSWORD = 'geroi2025';
 
-// Pick whichever env var pair Vercel/Upstash integration provided.
+// Lazy init so we can return a descriptive error instead of crashing the function
+let _redis = null;
+let _redisErr = null;
 function getRedis() {
+  if (_redis) return _redis;
   const url =
     process.env.KV_REST_API_URL ||
     process.env.UPSTASH_REDIS_REST_URL ||
@@ -16,17 +19,20 @@ function getRedis() {
     process.env.REDIS_REST_TOKEN ||
     process.env.STORAGE_REST_TOKEN;
   if (!url || !token) {
-    throw new Error('Redis env vars not found. Available: ' + Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', '));
+    _redisErr = 'Redis env vars not found. Available REDIS-like keys: ' + (Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', ') || '(none)');
+    return null;
   }
-  return new Redis({ url, token });
+  _redis = new Redis({ url, token });
+  return _redis;
 }
-const redis = getRedis();
 
 const noStore = (res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 };
 
 async function readState() {
+  const redis = getRedis();
+  if (!redis) return {};
   try {
     const raw = await redis.get(KEY);
     if (!raw) return {};
@@ -41,6 +47,8 @@ async function readState() {
 }
 
 async function writeState(obj) {
+  const redis = getRedis();
+  if (!redis) throw new Error(_redisErr || 'Redis not configured');
   await redis.set(KEY, JSON.stringify(obj));
 }
 
@@ -50,10 +58,15 @@ export default async function handler(req, res) {
       noStore(res);
       const url0 = new URL(req.url, 'http://x');
       if (url0.searchParams.get('debug') === '1') {
-        const data = await readState();
+        const redis = getRedis();
+        const envKeys = Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k));
+        const data = redis ? await readState() : {};
         return res.status(200).json({
           backend: 'upstash-redis',
           key: KEY,
+          redisConfigured: !!redis,
+          redisError: _redisErr,
+          envKeys,
           keyCount: Object.keys(data).length,
           keys: Object.keys(data),
         });
