@@ -3,8 +3,24 @@ import { Redis } from '@upstash/redis';
 const KEY = 'site-data';
 const ADMIN_PASSWORD = 'geroi2025';
 
-// Auto-detects from KV_REST_API_URL/TOKEN or UPSTASH_REDIS_REST_URL/TOKEN env vars
-const redis = Redis.fromEnv();
+// Pick whichever env var pair Vercel/Upstash integration provided.
+function getRedis() {
+  const url =
+    process.env.KV_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.REDIS_REST_URL ||
+    process.env.STORAGE_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.REDIS_REST_TOKEN ||
+    process.env.STORAGE_REST_TOKEN;
+  if (!url || !token) {
+    throw new Error('Redis env vars not found. Available: ' + Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', '));
+  }
+  return new Redis({ url, token });
+}
+const redis = getRedis();
 
 const noStore = (res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
