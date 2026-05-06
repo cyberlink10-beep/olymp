@@ -1,29 +1,29 @@
-import { Redis } from '@upstash/redis';
+import IORedis from 'ioredis';
 
 const KEY = 'site-data';
 const ADMIN_PASSWORD = 'geroi2025';
 
-// Lazy init so we can return a descriptive error instead of crashing the function
-let _redis = null;
-let _redisErr = null;
-function getRedis() {
-  if (_redis) return _redis;
-  const url =
-    process.env.KV_REST_API_URL ||
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.REDIS_REST_URL ||
-    process.env.STORAGE_REST_URL;
-  const token =
-    process.env.KV_REST_API_TOKEN ||
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.REDIS_REST_TOKEN ||
-    process.env.STORAGE_REST_TOKEN;
-  if (!url || !token) {
-    _redisErr = 'Redis env vars not found. Available REDIS-like keys: ' + (Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', ') || '(none)');
+let _client = null;
+let _err = null;
+function getClient() {
+  if (_client) return _client;
+  const url = process.env.REDIS_URL || process.env.KV_URL;
+  if (!url) {
+    _err = 'REDIS_URL not set. Available: ' + (Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', ') || '(none)');
     return null;
   }
-  _redis = new Redis({ url, token });
-  return _redis;
+  try {
+    _client = new IORedis(url, {
+      maxRetriesPerRequest: 2,
+      enableOfflineQueue: false,
+      lazyConnect: false,
+    });
+    _client.on('error', e => { console.error('Redis error:', e?.message); });
+  } catch (e) {
+    _err = String(e?.message || e);
+    return null;
+  }
+  return _client;
 }
 
 const noStore = (res) => {
@@ -31,25 +31,20 @@ const noStore = (res) => {
 };
 
 async function readState() {
-  const redis = getRedis();
-  if (!redis) return {};
+  const client = getClient();
+  if (!client) return {};
   try {
-    const raw = await redis.get(KEY);
+    const raw = await client.get(KEY);
     if (!raw) return {};
-    // Upstash auto-deserializes JSON; raw may be string or object depending on how it was set
-    if (typeof raw === 'string') {
-      try { return JSON.parse(raw); } catch { return {}; }
-    }
-    return raw && typeof raw === 'object' ? raw : {};
+    return JSON.parse(raw);
   } catch (e) {
     return {};
   }
 }
-
 async function writeState(obj) {
-  const redis = getRedis();
-  if (!redis) throw new Error(_redisErr || 'Redis not configured');
-  await redis.set(KEY, JSON.stringify(obj));
+  const client = getClient();
+  if (!client) throw new Error(_err || 'Redis not configured');
+  await client.set(KEY, JSON.stringify(obj));
 }
 
 export default async function handler(req, res) {
@@ -58,14 +53,14 @@ export default async function handler(req, res) {
       noStore(res);
       const url0 = new URL(req.url, 'http://x');
       if (url0.searchParams.get('debug') === '1') {
-        const redis = getRedis();
+        const client = getClient();
         const envKeys = Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k));
-        const data = redis ? await readState() : {};
+        const data = client ? await readState() : {};
         return res.status(200).json({
-          backend: 'upstash-redis',
+          backend: 'ioredis',
           key: KEY,
-          redisConfigured: !!redis,
-          redisError: _redisErr,
+          redisConfigured: !!client,
+          redisError: _err,
           envKeys,
           keyCount: Object.keys(data).length,
           keys: Object.keys(data),
@@ -89,7 +84,6 @@ export default async function handler(req, res) {
       const isReplace = url.searchParams.get('replace') === '1';
       const existing = isReplace ? {} : await readState();
 
-      // Deep-merge logic for korpuses (preserve nested floor polygons)
       const merged = { ...existing };
       for (const k of Object.keys(incoming)) {
         if (k === 'geroi_korpuses' && Array.isArray(existing[k]) && Array.isArray(incoming[k])) {
@@ -116,7 +110,7 @@ export default async function handler(req, res) {
       noStore(res);
       return res.status(200).json({
         ok: true,
-        backend: 'upstash-redis',
+        backend: 'ioredis',
         keys: Object.keys(merged),
       });
     }
