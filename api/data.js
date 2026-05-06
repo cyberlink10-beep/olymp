@@ -1,30 +1,31 @@
-import { put, list, del } from '@vercel/blob';
+import { Redis } from '@upstash/redis';
 
-const PREFIX = 'site-data-';
+const KEY = 'site-data';
 const ADMIN_PASSWORD = 'geroi2025';
+
+// Auto-detects from KV_REST_API_URL/TOKEN or UPSTASH_REDIS_REST_URL/TOKEN env vars
+const redis = Redis.fromEnv();
 
 const noStore = (res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 };
 
-async function readLatestBlob() {
-  const { blobs } = await list({ prefix: PREFIX, limit: 100 });
-  if (!blobs.length) return { data: {}, blobs: [] };
-  const sorted = [...blobs].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-  const latest = sorted[0];
-  // Latest url is brand new each PUT (unique filename), so CDN cannot have stale copy.
-  const r = await fetch(latest.url, { cache: 'no-store' });
-  if (!r.ok) return { data: {}, blobs: sorted };
-  let data = {};
-  try { data = await r.json(); } catch {}
-  return { data, blobs: sorted };
+async function readState() {
+  try {
+    const raw = await redis.get(KEY);
+    if (!raw) return {};
+    // Upstash auto-deserializes JSON; raw may be string or object depending on how it was set
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch (e) {
+    return {};
+  }
 }
 
-async function cleanupOldBlobs(blobs, keep = 3) {
-  // Keep the most recent N, delete older
-  if (blobs.length <= keep) return;
-  const toDel = blobs.slice(keep);
-  await Promise.all(toDel.map(b => del(b.url).catch(() => {})));
+async function writeState(obj) {
+  await redis.set(KEY, JSON.stringify(obj));
 }
 
 export default async function handler(req, res) {
@@ -33,14 +34,15 @@ export default async function handler(req, res) {
       noStore(res);
       const url0 = new URL(req.url, 'http://x');
       if (url0.searchParams.get('debug') === '1') {
-        const { blobs } = await list({ prefix: PREFIX, limit: 100 });
+        const data = await readState();
         return res.status(200).json({
-          PREFIX,
-          blobCount: blobs.length,
-          blobs: blobs.map(b => ({ pathname: b.pathname, url: b.url, size: b.size, uploadedAt: b.uploadedAt })),
+          backend: 'upstash-redis',
+          key: KEY,
+          keyCount: Object.keys(data).length,
+          keys: Object.keys(data),
         });
       }
-      const { data } = await readLatestBlob();
+      const data = await readState();
       return res.status(200).json(data);
     }
 
@@ -56,11 +58,9 @@ export default async function handler(req, res) {
 
       const url = new URL(req.url, 'http://x');
       const isReplace = url.searchParams.get('replace') === '1';
-      const { data: existing, blobs: existingBlobs } = isReplace
-        ? { data: {}, blobs: [] }
-        : await readLatestBlob();
+      const existing = isReplace ? {} : await readState();
 
-      // Deep-merge logic for korpuses
+      // Deep-merge logic for korpuses (preserve nested floor polygons)
       const merged = { ...existing };
       for (const k of Object.keys(incoming)) {
         if (k === 'geroi_korpuses' && Array.isArray(existing[k]) && Array.isArray(incoming[k])) {
@@ -83,22 +83,12 @@ export default async function handler(req, res) {
         }
       }
 
-      // Write to a NEW filename each time (timestamp-suffixed) — defeats CDN caching on read
-      const filename = `${PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
-      const putResult = await put(filename, JSON.stringify(merged), {
-        access: 'public',
-        addRandomSuffix: false,
-        contentType: 'application/json',
-      });
-
-      // Async cleanup of older files (don't await, fire-and-forget)
-      cleanupOldBlobs(existingBlobs, 3).catch(() => {});
-
+      await writeState(merged);
       noStore(res);
       return res.status(200).json({
         ok: true,
+        backend: 'upstash-redis',
         keys: Object.keys(merged),
-        savedTo: putResult?.pathname,
       });
     }
 
