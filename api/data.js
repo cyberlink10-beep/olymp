@@ -1,29 +1,32 @@
-import IORedis from 'ioredis';
+import { createClient } from 'redis';
 
 const KEY = 'site-data';
 const ADMIN_PASSWORD = 'geroi2025';
 
 let _client = null;
 let _err = null;
-function getClient() {
-  if (_client) return _client;
+
+async function getClient() {
+  if (_client && _client.isOpen) return _client;
   const url = process.env.REDIS_URL || process.env.KV_URL;
   if (!url) {
     _err = 'REDIS_URL not set. Available: ' + (Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k)).join(', ') || '(none)');
     return null;
   }
   try {
-    _client = new IORedis(url, {
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
+    _client = createClient({
+      url,
+      socket: { connectTimeout: 7000, reconnectStrategy: false },
     });
     _client.on('error', e => { console.error('Redis error:', e?.message); });
+    await _client.connect();
+    _err = null;
+    return _client;
   } catch (e) {
     _err = String(e?.message || e);
+    _client = null;
     return null;
   }
-  return _client;
 }
 
 const noStore = (res) => {
@@ -31,10 +34,10 @@ const noStore = (res) => {
 };
 
 async function readState() {
-  const client = getClient();
-  if (!client) return {};
+  const c = await getClient();
+  if (!c) return {};
   try {
-    const raw = await client.get(KEY);
+    const raw = await c.get(KEY);
     if (!raw) return {};
     return JSON.parse(raw);
   } catch (e) {
@@ -42,9 +45,9 @@ async function readState() {
   }
 }
 async function writeState(obj) {
-  const client = getClient();
-  if (!client) throw new Error(_err || 'Redis not configured');
-  await client.set(KEY, JSON.stringify(obj));
+  const c = await getClient();
+  if (!c) throw new Error(_err || 'Redis not configured');
+  await c.set(KEY, JSON.stringify(obj));
 }
 
 export default async function handler(req, res) {
@@ -53,13 +56,13 @@ export default async function handler(req, res) {
       noStore(res);
       const url0 = new URL(req.url, 'http://x');
       if (url0.searchParams.get('debug') === '1') {
-        const client = getClient();
+        const c = await getClient();
         const envKeys = Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|STORAGE/i.test(k));
-        const data = client ? await readState() : {};
+        const data = c ? await readState() : {};
         return res.status(200).json({
-          backend: 'ioredis',
+          backend: 'node-redis',
           key: KEY,
-          redisConfigured: !!client,
+          redisConfigured: !!c,
           redisError: _err,
           envKeys,
           keyCount: Object.keys(data).length,
@@ -110,7 +113,7 @@ export default async function handler(req, res) {
       noStore(res);
       return res.status(200).json({
         ok: true,
-        backend: 'ioredis',
+        backend: 'node-redis',
         keys: Object.keys(merged),
       });
     }
