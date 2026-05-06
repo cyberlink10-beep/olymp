@@ -89,23 +89,31 @@ export default async function handler(req, res) {
 
       const merged = { ...existing };
       for (const k of Object.keys(incoming)) {
-        if (k === 'geroi_korpuses' && Array.isArray(existing[k]) && Array.isArray(incoming[k])) {
-          const byId = new Map((existing[k] || []).map(x => [x.id, x]));
-          for (const x of incoming[k]) {
-            const ex = byId.get(x.id);
-            if (ex) {
+        const ex = existing[k];
+        const inc = incoming[k];
+        if (k === 'geroi_korpuses' && Array.isArray(ex) && Array.isArray(inc)) {
+          // Korpuses: merge by id, deep-merge floorPolygons
+          const byId = new Map(ex.map(x => [x.id, x]));
+          for (const x of inc) {
+            const old = byId.get(x.id);
+            if (old) {
               byId.set(x.id, {
-                ...ex,
+                ...old,
                 ...x,
-                floorPolygons: { ...(ex.floorPolygons || {}), ...(x.floorPolygons || {}) },
+                floorPolygons: { ...(old.floorPolygons || {}), ...(x.floorPolygons || {}) },
+                floorSchemas:  { ...(old.floorSchemas  || {}), ...(x.floorSchemas  || {}) },
               });
             } else {
               byId.set(x.id, x);
             }
           }
           merged[k] = Array.from(byId.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
+        } else if (ex && typeof ex === 'object' && !Array.isArray(ex) && inc && typeof inc === 'object' && !Array.isArray(inc)) {
+          // Plain objects (e.g. geroi_settings, geroi_about, geroi_infra, geroi_footer): shallow merge
+          merged[k] = { ...ex, ...inc };
         } else {
-          merged[k] = incoming[k];
+          // Arrays without id semantics, primitives, etc — replace
+          merged[k] = inc;
         }
       }
 
